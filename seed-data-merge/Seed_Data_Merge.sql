@@ -1,11 +1,11 @@
 declare
 -->>>>>>>>>>>>>>>>>>>> CHANGE THE LINES BELOW <<<<<<<<<<<<<<<<<<<<<<<
    -- Table to merge in to (UPPER CASE)
-   table_name    varchar2(30) := 'MAS_STEP_STATUSES';  
+   table_name    varchar2(30) := 'MAS_RULE_TYPES';  
    -- LIST OF COLUMNS IN THE TABLE TO INCLUDE
    --  Include columns used to match in the MERGE statement
    --  Exclude things like ID and APEX AUDIT COLS
-   column_list   varchar2(4000) := 'name, code, description'; 
+   column_list   varchar2(4000) := 'name, code, description, icon, display_seq'; 
    -- Columns used for the MERGE MATHCH (comma separated list)
    match_columns varchar2(4000) := 'code';
 --^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -154,7 +154,7 @@ for data in (
          set #');
    -- Now itterate through the column list to update when matched. 
    l_count := 0;
-   for c in 1..l_column_list.count loop
+   for c in l_column_list.first .. l_column_list.last loop
       -- Since we stripped the MATCH column out of the column list above, we have to account for the 
       -- sparse array problem by checking to see if an element at the index exists.
       if l_column_list.exists(c) then
@@ -177,7 +177,7 @@ for data in (
       insert ( #');
    -- Emit the columns into the target portion of the insert statement
    l_count := 0;
-   for c in 1..l_column_list.count loop
+   for c in l_column_list.first .. l_column_list.last loop
       -- Again we account for the sparse array problem
       if l_column_list.exists(c) then
          -- Decide whether we output a comma
@@ -192,7 +192,7 @@ for data in (
       end if;
    end loop;
  -- Don't forget the match columns too. 
-   for c in 1..l_match_list.count loop
+   for c in l_match_list.first .. l_match_list.last loop
          -- Decide whether we output a comma
          if l_count > 0 then
             dbms_output.put('        , ');
@@ -209,7 +209,7 @@ for data in (
    values ( #');
    -- Emit the references to the DATA record from the cursor for the VALUES to insert.
    l_count := 0;
-   for c in 1..l_column_list.count loop
+   for c in l_column_list.first .. l_column_list.last loop
       -- Sparse Array again
       if l_column_list.exists(c) then
          -- Do we need a comma
@@ -224,7 +224,7 @@ for data in (
       end if;
    end loop;
    -- You also need to emit the MATCH colulmn list for an insert. 
-   for c in 1..l_match_list.count loop
+   for c in l_match_list.first .. l_match_list.last loop
          -- Do we need a comma
          if l_count > 0 then
             dbms_output.put('        , ');
