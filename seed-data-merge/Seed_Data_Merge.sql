@@ -191,6 +191,18 @@ for data in (
          l_count := l_count + 1;
       end if;
    end loop;
+ -- Don't forget the match columns too. 
+   for c in 1..l_match_list.count loop
+         -- Decide whether we output a comma
+         if l_count > 0 then
+            dbms_output.put('        , ');
+         else
+            dbms_output.put('          ');
+         end if;
+         -- Output the column name
+         dbms_output.put_line(l_match_list(c));
+         l_count := l_count + 1;
+   end loop;
    -- Emit the Values Clause
    dbms_output.put_line(q'#
    )
@@ -210,6 +222,18 @@ for data in (
          dbms_output.put_line('data.' || l_column_list(c));
          l_count := l_count + 1;
       end if;
+   end loop;
+   -- You also need to emit the MATCH colulmn list for an insert. 
+   for c in 1..l_match_list.count loop
+         -- Do we need a comma
+         if l_count > 0 then
+            dbms_output.put('        , ');
+         else
+            dbms_output.put('          ');
+         end if;
+         -- Emit the value
+         dbms_output.put_line('data.' || l_match_list(c));
+         l_count := l_count + 1;
    end loop;
    -- End the proc
    dbms_output.put_line(q'# );
