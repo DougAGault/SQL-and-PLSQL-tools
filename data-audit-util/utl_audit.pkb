@@ -234,7 +234,9 @@ create or replace PACKAGE BODY util_audit AS
     -- If the current column name is  in the list of columns to include, then add it to the trigger code. 
     --
             IF instr(v_columns, ',' || r.column_name || ',') > 0 THEN
-                v_sql := v_sql || q'!     IF :NEW.!' || r.column_name || q'! != :OLD.!' || r.column_name
+                v_sql := v_sql || q'! IF :NEW.!' || r.column_name || q'! != :OLD.!' || r.column_name
+                         || q'! OR (:NEW.!' || r.column_name || q'! is not null and :OLD.!' || r.column_name || q'! is null)!'
+                         || q'! OR (:NEW.!' || r.column_name || q'! is null and :OLD.!' || r.column_name || q'! is not null)!'
                          || q'! OR DELETING or INSERTING THEN !' || chr(13);
 
                 v_sql := v_sql || q'!       -- Clear the temporary JSON object !' || chr(13);
