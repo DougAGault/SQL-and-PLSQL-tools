@@ -443,8 +443,8 @@ create or replace PACKAGE BODY util_audit AS
         p_transaction_json IN json_object_t
     ) IS
       l_userenv VARCHAR2(4000) := nvl(sys_context('USERENV','MODULE'),'<<Not Set>>')||'|'||nvl(sys_context('USERENV','ACTION'),'<<Not Set>>');
-      l_json    JSON := p_transaction_json.to_json;
-      l_clob    clob := p_transaction_json.to_clob;
+      l_json    JSON := p_transaction_json.to_json; -- Can only be used in 21c and above
+      l_clob    clob := p_transaction_json.to_clob; -- To be used up to 19c
     BEGIN
     
     INSERT INTO util_audit_records (
@@ -483,7 +483,9 @@ create or replace PACKAGE BODY util_audit AS
                end as new_clob
              , l_userenv  -- value defined above
              , sysdate    -- Right Now
-          FROM json_table ( l_json, '$'
+          FROM json_table ( 
+                    l_json, '$'         -- For 21c and above .. Comment out for earlier versions
+                    --l_clob, '$'       -- For 19c and below .. Comment out for 21c and beyond.
                     COLUMNS (
                       transaction_id    NUMBER PATH '$.transaction_id'
                      ,table_name        varchar2(255) PATH '$.table_name'
