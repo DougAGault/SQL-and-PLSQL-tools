@@ -100,7 +100,7 @@ def process_package_content(package_content, package_type):
 
     # Perform the replacement in the package content
     package_content = proc_func_pattern.sub(replace_with_javadoc, package_content)
-
+    package_content += '\n/' # Add the trailing slash back to the file
     return package_content
 
 def main(input_filename):
