@@ -388,10 +388,14 @@ create or replace PACKAGE BODY util_audit AS
     ) IS
         v_table_name VARCHAR2(500) := upper(p_table_name);
     BEGIN
+        $if util_audit_control.is_installed $then
         DELETE FROM util_audit_records
          WHERE table_name = v_table_name
            AND ( audit_date < p_before_date
             OR p_before_date IS NULL );
+       $else
+       null;
+       $end
 
     END remove_audit_recs_for_table;
 --------------------------------------------------------------------------------
@@ -404,9 +408,13 @@ create or replace PACKAGE BODY util_audit AS
         p_before_date IN DATE DEFAULT sysdate
     ) IS
     BEGIN
+        $if util_audit_control.is_installed $then
         DELETE FROM util_audit_records
          WHERE ( audit_date < p_before_date
             OR p_before_date IS NULL );
+        $else
+        null;
+        $end
 
     END remove_all_audit_recs;
 --------------------------------------------------------------------------------
@@ -443,10 +451,14 @@ create or replace PACKAGE BODY util_audit AS
         p_transaction_json IN json_object_t
     ) IS
       l_userenv VARCHAR2(4000) := nvl(sys_context('USERENV','MODULE'),'<<Not Set>>')||'|'||nvl(sys_context('USERENV','ACTION'),'<<Not Set>>');
+      $if dbms_db_version.version > 19 $then
       l_json    JSON := p_transaction_json.to_json; -- Can only be used in 21c and above
+      $else
       l_clob    clob := p_transaction_json.to_clob; -- To be used up to 19c
+      $end
     BEGIN
     
+    $if util_audit_control.is_installed $then
     INSERT INTO util_audit_records (
         transaction_id
         , table_name
@@ -484,8 +496,11 @@ create or replace PACKAGE BODY util_audit AS
              , l_userenv  -- value defined above
              , sysdate    -- Right Now
           FROM json_table ( 
+                    $if dbms_db_version.version > 19 $then
                     l_json, '$'         -- For 21c and above .. Comment out for earlier versions
-                    --l_clob, '$'       -- For 19c and below .. Comment out for 21c and beyond.
+                    $else
+                    l_clob, '$'       -- For 19c and below .. Comment out for 21c and beyond.
+                    $end
                     COLUMNS (
                       transaction_id    NUMBER PATH '$.transaction_id'
                      ,table_name        varchar2(255) PATH '$.table_name'
@@ -501,8 +516,12 @@ create or replace PACKAGE BODY util_audit AS
                     )
                 )
             j;
+    $else
+    null;
+    $end
 
     END capture_audit;
 --
 --
 END util_audit;
+/
