@@ -1,4 +1,5 @@
-create or replace PACKAGE util_audit AS 
+create or replace package util_audit authid current_user
+as 
 --------------------------------------------------------------------------------
 --
 --  DESCRIPTION
@@ -111,7 +112,7 @@ create or replace PACKAGE util_audit AS
     --
     -- Arguments
     --      p_table_name     name of table to be audited
-    --      p_columns        comma separated list of columns to audit
+    --      p_exclude_columns        comma separated list of columns to exclude from audit
     --      p_action -       EXECUTE or GENERATE 
     --                       EXECUTE will execute the script immediately, creating the objects.
     --                       GENERATE will emit the script to the OWA HTP buffer. 
@@ -123,14 +124,14 @@ create or replace PACKAGE util_audit AS
     -- example(s):
     --     util_audit.add_table_audit_trig 
     --      (p_table_name => 'EMPLOYEES',
-    --       p_columns    => 'FIRST_NAME,LAST_NAME,SALARY,COMMISSION_PCT',
+    --       p_exclude_columns   => 'FIRST_NAME,LAST_NAME',
     --       p_action     => 'GENERATE',
     --      );
     --
     --
     PROCEDURE add_table_audit_trig (
         p_table_name IN VARCHAR2
-      , p_columns    IN VARCHAR2
+      , p_exclude_columns    IN VARCHAR2
       , p_action     IN VARCHAR2 DEFAULT 'GENERATE'
     );
 --------------------------------------------------------------------------------
@@ -361,3 +362,4 @@ create or replace PACKAGE util_audit AS
 --
 --
 END util_audit;
+/
