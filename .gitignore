@@ -7,3 +7,4 @@ www/dist
 logs
 *.log
 *.map
+*.sublime-*

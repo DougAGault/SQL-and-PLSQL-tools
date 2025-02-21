@@ -12,11 +12,14 @@ create or replace PACKAGE BODY util_audit AS
 --
 --------------------------------------------------------------------------------
 
+    c_crlf constant varchar2(2) := chr(13)||chr(10);
+
 -- ==================================================================================
 --  P R I V A T E   M E T H O D S 
 -- ==================================================================================
     g_ignored_columns VARCHAR2(32767);
 
+    
 -------------------------------------------------------------------------------------
 -- TRIM_TABLE_NAME
 -------------------------------------------------------------------------------------
@@ -36,9 +39,10 @@ create or replace PACKAGE BODY util_audit AS
     PROCEDURE output_sql (
         p_sql    IN VARCHAR2
       , p_action IN VARCHAR2
-    ) IS
-        cursor_name    INTEGER;
-        rows_processed INTEGER;
+    )
+    IS
+        cursor_name    pls_integer;
+        rows_processed pls_integer;
     BEGIN
         IF p_action = 'EXECUTE' THEN
             BEGIN
@@ -48,12 +52,14 @@ create or replace PACKAGE BODY util_audit AS
                 dbms_sql.close_cursor(cursor_name);
             EXCEPTION
                 WHEN OTHERS THEN
-                    dbms_sql.close_cursor(cursor_name);
+                    if sys.dbms_sql.is_open( cursor_name ) then
+                      sys.dbms_sql.close_cursor( cursor_name );
+                    end if;
                     RAISE;
             END;
 
         ELSIF p_action = 'GENERATE' THEN
-            dbms_output.put_line(p_sql || chr(10) || chr(10));
+            dbms_output.put_line(p_sql || c_crlf);
         END IF;
     END output_sql;
 -- ==================================================================================
@@ -125,12 +131,12 @@ create or replace PACKAGE BODY util_audit AS
 --------------------------------------------------------------------------------
     PROCEDURE add_table_audit_trig (
         p_table_name IN VARCHAR2
-      , p_columns    IN VARCHAR2
+      , p_exclude_columns    IN VARCHAR2
       , p_action     IN VARCHAR2 DEFAULT 'GENERATE'
     ) IS
         v_sql        VARCHAR2(32767);
         v_table_name VARCHAR2(500) := upper(p_table_name);
-        v_columns    VARCHAR2(32767) := ',' || replace(upper(p_columns), ' ', NULL) || ','; -- Replacing spaces with nulls and adding leading and traling comma
+        v_exclude_columns    VARCHAR2(32767) := ',' || replace(upper(p_exclude_columns), ' ', NULL) || ','; -- Replacing spaces with nulls and adding leading and traling comma
         v_pk_col     VARCHAR2(500);
     BEGIN
     --
@@ -159,63 +165,63 @@ create or replace PACKAGE BODY util_audit AS
     --
     -- the first part is the trigger preamble and the initial variables right up to the BEGIN clause.
     --
-        v_sql := q'! create or replace trigger AIUD_!' || trim_table_name(v_table_name) || q'!_AUD!' || chr(13);
+        v_sql := q'!create or replace trigger AIUD_!' || trim_table_name(v_table_name) || q'!_AUD!' || c_crlf;
 
-        v_sql := v_sql || q'!  after insert or update or delete !' || chr(13);
-        v_sql := v_sql || q'!  on !' || v_table_name || chr(13);
-        v_sql := v_sql || q'!  for each row !' || chr(13);
-        v_sql := v_sql || q'!  declare !' || chr(13);
-        v_sql := v_sql || q'!   l_txn_id number; !' || chr(13);
-        v_sql := v_sql || q'!   v_audit_json json_object_t := new json_object_t; !' || chr(13);
-        v_sql := v_sql || q'!   v_temp_json  json_object_t := new json_object_t; !' || chr(13);
-        v_sql := v_sql || q'!   v_json_array json_array_t  := new json_array_t; !' || chr(13);
-        v_sql := v_sql || q'!   v_empty_json json_object_t := new json_object_t; !' || chr(13);
-        v_sql := v_sql || q'!   l_trigger_action varchar2(6); !' || chr(13);
+        v_sql := v_sql || q'!  after insert or update or delete !' || c_crlf;
+        v_sql := v_sql || q'!  on !' || v_table_name || c_crlf;
+        v_sql := v_sql || q'!  for each row !' || c_crlf;
+        v_sql := v_sql || q'!  declare !' || c_crlf;
+        v_sql := v_sql || q'!   l_txn_id number; !' || c_crlf;
+        v_sql := v_sql || q'!   v_audit_json json_object_t := new json_object_t; !' || c_crlf;
+        v_sql := v_sql || q'!   v_temp_json  json_object_t := new json_object_t; !' || c_crlf;
+        v_sql := v_sql || q'!   v_json_array json_array_t  := new json_array_t; !' || c_crlf;
+        v_sql := v_sql || q'!   v_empty_json json_object_t := new json_object_t; !' || c_crlf;
+        v_sql := v_sql || q'!   l_trigger_action varchar2(6); !' || c_crlf;
     --
-        v_sql := v_sql || q'!  begin !' || chr(13);
+        v_sql := v_sql || q'!  begin !' || c_crlf;
     --
     -- This section creates the transaction id that will link all the individual audit records together for a single transaction.
     --
-        v_sql := v_sql || q'!     -- !' || chr(13);
-        v_sql := v_sql || q'!     -- Generate a transaction ID for this I/U/D event !' || chr(13);
-        v_sql := v_sql || q'!     -- !' || chr(13);
-        v_sql := v_sql || q'!     l_txn_id := to_number(sys_guid(), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX');  !' || chr(13);
-        v_sql := v_sql || q'!     -- !' || chr(13);
+        v_sql := v_sql || q'!     -- !' || c_crlf;
+        v_sql := v_sql || q'!     -- Generate a transaction ID for this I/U/D event !' || c_crlf;
+        v_sql := v_sql || q'!     -- !' || c_crlf;
+        v_sql := v_sql || q'!     l_txn_id := to_number(sys_guid(), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX');  !' || c_crlf;
+        v_sql := v_sql || q'!     -- !' || c_crlf;
     --
     -- Figure out which type of transaction this is 
     --
-        v_sql := v_sql || q'!     IF INSERTING THEN  !' || chr(13);
-        v_sql := v_sql || q'!       l_trigger_action := 'INSERT';  !' || chr(13);
-        v_sql := v_sql || q'!     ELSIF UPDATING then   !' || chr(13);
-        v_sql := v_sql || q'!       l_trigger_action := 'UPDATE';  !' || chr(13);
-        v_sql := v_sql || q'!     ELSIF DELETING then   !' || chr(13);
-        v_sql := v_sql || q'!       l_trigger_action := 'DELETE';  !' || chr(13);
-        v_sql := v_sql || q'!     END IF; !' || chr(13);
+        v_sql := v_sql || q'!     IF INSERTING THEN  !' || c_crlf;
+        v_sql := v_sql || q'!       l_trigger_action := 'INSERT';  !' || c_crlf;
+        v_sql := v_sql || q'!     ELSIF UPDATING then   !' || c_crlf;
+        v_sql := v_sql || q'!       l_trigger_action := 'UPDATE';  !' || c_crlf;
+        v_sql := v_sql || q'!     ELSIF DELETING then   !' || c_crlf;
+        v_sql := v_sql || q'!       l_trigger_action := 'DELETE';  !' || c_crlf;
+        v_sql := v_sql || q'!     END IF; !' || c_crlf;
     --
     -- Next we start createing the JSON object. 
     --  * first we create the JSON elements that are common to the entire transaction 
     --
-        v_sql := v_sql || q'!     -- Create the base JSON object with the top level details !' || chr(13);
-        v_sql := v_sql || q'!     -- !' || chr(13);
+        v_sql := v_sql || q'!     -- Create the base JSON object with the top level details !' || c_crlf;
+        v_sql := v_sql || q'!     -- !' || c_crlf;
     --  ** Table Name 
-        v_sql := v_sql || q'!     v_audit_json.put('table_name', '!' || v_table_name || q'!'); !' || chr(13);
+        v_sql := v_sql || q'!     v_audit_json.put('table_name', '!' || v_table_name || q'!'); !' || c_crlf;
     -- ** Transaction Type (Insert, Update or Delete )
-        v_sql := v_sql || q'!     v_audit_json.put('trans_type', l_trigger_action); !' || chr(13);
+        v_sql := v_sql || q'!     v_audit_json.put('trans_type', l_trigger_action); !' || c_crlf;
     -- ** Audit Date
-        v_sql := v_sql || q'!     v_audit_json.put('audit_date', sysdate); !' || chr(13);
+        v_sql := v_sql || q'!     v_audit_json.put('audit_date', sysdate); !' || c_crlf;
     -- ** User
-        v_sql := v_sql || q'!     v_audit_json.put('user_name', nvl(v( 'APP_USER' ),user)); !' || chr(13);
+        v_sql := v_sql || q'!     v_audit_json.put('user_name', coalesce(sys_context('APEX$SESSION','app_user'), regexp_substr(sys_context('userenv','client_identifier'),'^[^:]*'), sys_context('userenv','session_user')) ); !' || c_crlf;
     -- ** Transaction id 
-        v_sql := v_sql || q'!     v_audit_json.put('transaction_id', l_txn_id); !' || chr(13);
+        v_sql := v_sql || q'!     v_audit_json.put('transaction_id', l_txn_id); !' || c_crlf;
     -- ** Primary Key data 
-        v_sql := v_sql || q'!     -- Pick the value of the PK if its available !' || chr(13);
-        v_sql := v_sql || q'!     IF INSERTING then !' || chr(13);
-        v_sql := v_sql || q'!          v_audit_json.put('pk_value', :new.!' || v_pk_col || q'!); !' || chr(13);
+        v_sql := v_sql || q'!     -- Pick the value of the PK if its available !' || c_crlf;
+        v_sql := v_sql || q'!     IF INSERTING then !' || c_crlf;
+        v_sql := v_sql || q'!          v_audit_json.put('pk_value', :new.!' || v_pk_col || q'!); !' || c_crlf;
 
-        v_sql := v_sql || q'!     ELSE    !' || chr(13);
-        v_sql := v_sql || q'!          v_audit_json.put('pk_value', :old.!' || v_pk_col || q'!); !' || chr(13);
+        v_sql := v_sql || q'!     ELSE    !' || c_crlf;
+        v_sql := v_sql || q'!          v_audit_json.put('pk_value', :old.!' || v_pk_col || q'!); !' || c_crlf;
 
-        v_sql := v_sql || q'!     END IF; !' || chr(13);
+        v_sql := v_sql || q'!     END IF; !' || c_crlf;
     
     --
     -- Loop through all the columns of the table and match to the columns the user requested to audit. 
@@ -224,54 +230,62 @@ create or replace PACKAGE BODY util_audit AS
             SELECT column_name
                  , data_type
                  , data_length
-              FROM all_tab_columns
+              FROM user_tab_columns
              WHERE table_name = p_table_name
                AND ( data_type IN ( 'NUMBER', 'VARCHAR2', 'CHAR', 'FLOAT', 'DATE'
                                   , 'BINARY_FLOAT', 'BINARY_DOUBLE', 'CLOB' )
                 OR data_type LIKE 'TIMESTAMP%' )
+               AND column_name not in (
+                      'CREATED_BY'
+                    , 'CREATED_ON'
+                    , 'LAST_UPDATED_BY'
+                    , 'LAST_UPDATED_ON'
+                    , 'UPDATED_BY'
+                    , 'UPDATED_ON'
+                )
         ) LOOP
     --
     -- If the current column name is  in the list of columns to include, then add it to the trigger code. 
     --
-            IF instr(v_columns, ',' || r.column_name || ',') > 0 THEN
-                v_sql := v_sql || q'! IF :NEW.!' || r.column_name || q'! != :OLD.!' || r.column_name
+            IF instr(v_exclude_columns, ',' || r.column_name || ',') = 0 THEN
+                v_sql := v_sql || c_crlf || q'!     IF :NEW.!' || r.column_name || q'! != :OLD.!' || r.column_name
                          || q'! OR (:NEW.!' || r.column_name || q'! is not null and :OLD.!' || r.column_name || q'! is null)!'
                          || q'! OR (:NEW.!' || r.column_name || q'! is null and :OLD.!' || r.column_name || q'! is not null)!'
-                         || q'! OR DELETING or INSERTING THEN !' || chr(13);
+                         || q'! OR DELETING or INSERTING THEN !' || c_crlf;
 
-                v_sql := v_sql || q'!       -- Clear the temporary JSON object !' || chr(13);
-                v_sql := v_sql || q'!       v_temp_json := v_empty_json; !' || chr(13);
-                v_sql := v_sql || q'!       -- add the details for the change !' || chr(13);
-                v_sql := v_sql || q'!       v_temp_json.put('column_name', '!' || r.column_name || q'!'); !' || chr(13);
+                v_sql := v_sql || q'!       -- Clear the temporary JSON object !' || c_crlf;
+                v_sql := v_sql || q'!       v_temp_json := v_empty_json; !' || c_crlf;
+                v_sql := v_sql || q'!       -- add the details for the change !' || c_crlf;
+                v_sql := v_sql || q'!       v_temp_json.put('column_name', '!' || r.column_name || q'!'); !' || c_crlf;
 
-                v_sql := v_sql || q'!       v_temp_json.put('data_type',  '!' || r.data_type || q'!'); !' || chr(13);
+                v_sql := v_sql || q'!       v_temp_json.put('data_type',  '!' || r.data_type || q'!'); !' || c_crlf;
 
-                v_sql := v_sql || q'!       v_temp_json.put('old_value', :old.!' || r.column_name || q'!); !' || chr(13);
+                v_sql := v_sql || q'!       v_temp_json.put('old_value', :old.!' || r.column_name || q'!); !' || c_crlf;
 
-                v_sql := v_sql || q'!       v_temp_json.put('new_value', :new.!' || r.column_name || q'!); !' || chr(13);
+                v_sql := v_sql || q'!       v_temp_json.put('new_value', :new.!' || r.column_name || q'!); !' || c_crlf;
 
-                v_sql := v_sql || q'!       -- Add the object to the array  !' || chr(13);
-                v_sql := v_sql || q'!       v_json_array.append(v_temp_json); !' || chr(13);
-                v_sql := v_sql || q'!     END IF;!' || chr(13);
+                v_sql := v_sql || q'!       -- Add the object to the array  !' || c_crlf;
+                v_sql := v_sql || q'!       v_json_array.append(v_temp_json); !' || c_crlf;
+                v_sql := v_sql || q'!     END IF;!' || c_crlf;
             END IF;
     --
         END LOOP;
     --
     -- Now add the array to the final JSON document 
     --
-        v_sql := v_sql || q'!     -- !' || chr(13);
-        v_sql := v_sql || q'!     -- Add the array of changed to the JSON object !' || chr(13);
-        v_sql := v_sql || q'!     --    !' || chr(13);
-        v_sql := v_sql || q'!     v_audit_json.put('columns', treat(v_json_array as json_array_t)); !' || chr(13);
+        v_sql := v_sql || q'!     -- !' || c_crlf;
+        v_sql := v_sql || q'!     -- Add the array of changed to the JSON object !' || c_crlf;
+        v_sql := v_sql || q'!     --    !' || c_crlf;
+        v_sql := v_sql || q'!     v_audit_json.put('columns', treat(v_json_array as json_array_t)); !' || c_crlf;
     --
     -- and call the util_audit package to capture the changes
     --
-        v_sql := v_sql || q'!     -- !' || chr(13);
-        v_sql := v_sql || q'!     -- Log the changes !' || chr(13);
-        v_sql := v_sql || q'!     -- !' || chr(13);
-        v_sql := v_sql || q'!     util_audit.capture_audit(p_transaction_json => v_audit_json); !' || chr(13);
-        v_sql := v_sql || q'!-- !' || chr(13);
-        v_sql := v_sql || q'!END; !' || chr(13);
+        v_sql := v_sql || q'!     -- !' || c_crlf;
+        v_sql := v_sql || q'!     -- Log the changes !' || c_crlf;
+        v_sql := v_sql || q'!     -- !' || c_crlf;
+        v_sql := v_sql || q'!     util_audit.capture_audit(p_transaction_json => v_audit_json); !' || c_crlf;
+        v_sql := v_sql || q'!-- !' || c_crlf;
+        v_sql := v_sql || q'!END;!';
         output_sql(p_sql => v_sql, p_action => p_action);
     EXCEPTION
         WHEN OTHERS THEN
