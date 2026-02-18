@@ -101,6 +101,31 @@ create or replace PACKAGE BODY util_audit AS
         WHEN OTHERS THEN
             raise_application_error(-20001, 'create_audit_table' || ' - ' || dbms_utility.format_error_backtrace, true);
     END create_audit_table;
+    --------------------------------------------------------------------------------
+    -- CREATE_AUDIT_LOOKUPS_TABLE
+    --------------------------------------------------------------------------------
+    -- Creates the table that will hold information of the lookup (FK) values.
+    -------------------------------------------------------------------------------------
+    PROCEDURE create_audit_lookups_table (
+        p_action in varchar2 default 'GENERATE'
+    ) is
+        v_sql varchar2(32767);
+    BEGIN
+        v_sql := q'{
+            create table UTIL_AUDIT_LOOKUPS (
+                column_name_return   varchar2(255) not null primary key,
+                table_name           varchar2(255) not null,
+                column_name_pk       varchar2(255) not null,
+                display_expression   varchar2(4000)
+            )
+        }';
+
+        output_sql(p_sql => v_sql, p_action => p_action);
+
+    EXCEPTION
+        WHEN OTHERS THEN
+            raise_application_error(-20001, 'create_audit_lookups_table - ' || dbms_utility.format_error_backtrace, true);
+    END create_audit_lookups_table;
 --------------------------------------------------------------------------------
 -- DROP_AUDIT_TABLE
 --------------------------------------------------------------------------------
@@ -124,6 +149,29 @@ create or replace PACKAGE BODY util_audit AS
         END;
 
     END drop_audit_table;
+--------------------------------------------------------------------------------
+-- DROP_AUDIT_LOOKUPS_TABLE
+--------------------------------------------------------------------------------
+-- Drops the central Logging table - USE WITH CAUTION
+-------------------------------------------------------------------------------------
+    PROCEDURE drop_audit_lookups_table (
+        p_action IN VARCHAR2 DEFAULT 'GENERATE'
+    ) IS
+        v_sql VARCHAR2(32767);
+        table_does_not_exist EXCEPTION;
+        PRAGMA exception_init ( table_does_not_exist, -942 );
+    BEGIN
+        v_sql := 'drop table UTIL_AUDIT_LOOKUPS';
+        BEGIN
+            output_sql(p_sql => v_sql, p_action => p_action);
+        EXCEPTION
+            WHEN table_does_not_exist THEN
+                NULL;
+            WHEN OTHERS THEN
+                raise_application_error(-20001, 'drop_audit_lookups_table' || ' - ' || dbms_utility.format_error_backtrace, true);
+        END;
+
+    END drop_audit_lookups_table;
 --------------------------------------------------------------------------------
 -- ADD_TABLE_AUDIT_TRIG 
 --------------------------------------------------------------------------------

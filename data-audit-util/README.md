@@ -8,6 +8,25 @@ This package was born out of a need to undestand what happened to a specific row
 - All triggers that Audit tables will be of the form BUID\_<<TABLE_NAME>>\_AUD
 - ANY Triggers that have the above name signature will be affected by this package
 
+## Installation
+
+Use the `install.sql` script.
+
+```
+-- Install all code without failures
+@util_audit_control.pks
+@util_audit.pks
+@util_audit.pkb
+
+-- create audit table
+exec util_audit.create_audit_table(p_action => 'EXECUTE');
+
+-- recompile code that is now aware that the audit table exists
+@util_audit_control.pks
+@util_audit.pks
+@util_audit.pkb
+```
+
 ## Limitations
 
 DataTypes that can be Audited are:

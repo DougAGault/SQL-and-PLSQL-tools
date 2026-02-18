@@ -85,6 +85,31 @@ as
         p_action IN VARCHAR2 DEFAULT 'GENERATE'
     );
 --------------------------------------------------------------------------------
+-- CREATE_AUDIT_LOOKUPS_TABLE
+--------------------------------------------------------------------------------
+    -- Generates (and optionally executes) a script that will create the lookup reference table 
+    --
+    -- Arguments 
+    --      p_action -       EXECUTE or GENERATE  
+    --                       EXECUTE will execute the script immediately, creating the objects.
+    --                       GENERATE will emit the script to the OWA HTP buffer. 
+    --   
+    -- 
+    -- Objects Created are 
+    --    UTIL_AUDIT_LOOKUPS - Table that holds lookup information for foreing key values
+    -- 
+    --          column_name_return   varchar2(255) not null primary key,
+    --          table_name           varchar2(255) not null,
+    --          column_name_pk       varchar2(255) not null,
+    --          display_expression   varchar2(4000)
+    --
+    -- example(s):
+    --     util_audit.create_audit_lookups_table(p_action => 'GENERATE');
+    --
+    PROCEDURE create_audit_lookups_table (
+        p_action IN VARCHAR2 DEFAULT 'GENERATE'
+    );
+--------------------------------------------------------------------------------
 -- DROP_AUDIT_TABLE
 --------------------------------------------------------------------------------
     -- Generates (and optionally executes) a script that will DROP the central logging table 
@@ -103,6 +128,27 @@ as
     --     util_audit.drop_audit_table(p_action => 'GENERATE');
     --
     PROCEDURE drop_audit_table (
+        p_action IN VARCHAR2 DEFAULT 'GENERATE'
+    );
+--------------------------------------------------------------------------------
+-- DROP_AUDIT_LOOKUPS_TABLE
+--------------------------------------------------------------------------------
+    -- Generates (and optionally executes) a script that will DROP the lookups table
+    --
+    -- Arguments 
+    --      p_action -       EXECUTE or GENERATE 
+    --                       EXECUTE will execute the script immediately, creating the objects.
+    --                       GENERATE will emit the script to the OWA HTP buffer. 
+    --   
+    -- 
+    --  DROPPED OBJECTS ARE  
+    --    UTIL_AUDIT_LOOKUPS - Table that holds lookup reference values 
+    --
+    --   
+    -- example(s):
+    --     util_audit.drop_audit_lookups_table(p_action => 'GENERATE');
+    --
+    PROCEDURE drop_audit_lookups_table (
         p_action IN VARCHAR2 DEFAULT 'GENERATE'
     );
 --------------------------------------------------------------------------------

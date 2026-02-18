@@ -24,15 +24,22 @@
 
 declare
 l_audit_exists varchar2(5);
+l_lookups_exists varchar2(5);
 begin
 select case when n = 0 then 'false' else 'true' end
   into l_audit_exists
 from (
     select count(*) n from user_tables where table_name = 'UTIL_AUDIT_RECORDS'
 );
+select case when n = 0 then 'false' else 'true' end
+  into l_lookups_exists
+from (
+    select count(*) n from user_tables where table_name = 'UTIL_AUDIT_LOOKUPS'
+);
 execute immediate '
 create or replace package util_audit_control as
   is_installed  constant boolean := ' || l_audit_exists || ';
+  has_lookups   constant boolean := ' || l_lookups_exists || ';
 end util_audit_control;
 ';
 end;
